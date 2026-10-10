@@ -1,0 +1,104 @@
+{
+  "_comment": "离线样例数据。用于在没有 Token 的情况下完整跑通项目。价格单位：元（浮点）。真实数据请通过麦当劳 MCP 获取，本文件不代表任何真实售价。",
+  "store": {
+    "code": "SH0001",
+    "name": "上海南京东路餐厅"
+  },
+  "items": [
+    { "code": "B001", "name": "巨无霸", "price": 24.5, "category": "主食", "tags": [] },
+    { "code": "B002", "name": "双层吉士汉堡", "price": 22.0, "category": "主食", "tags": [] },
+    { "code": "B003", "name": "麦辣鸡腿堡", "price": 22.5, "category": "主食", "tags": [] },
+    { "code": "B004", "name": "板烧鸡腿堡", "price": 24.0, "category": "主食", "tags": [] },
+    { "code": "B005", "name": "麦香鱼", "price": 18.0, "category": "主食", "tags": [] },
+    { "code": "S001", "name": "中薯条", "price": 14.0, "category": "配餐", "tags": [] },
+    { "code": "S002", "name": "麦乐鸡5块", "price": 13.5, "category": "配餐", "tags": [] },
+    { "code": "S003", "name": "玉米杯", "price": 9.5, "category": "配餐", "tags": [] },
+    { "code": "D001", "name": "可口可乐中杯", "price": 10.0, "category": "饮品", "tags": ["饮品"] },
+    { "code": "D002", "name": "麦咖啡拿铁", "price": 17.0, "category": "饮品", "tags": ["饮品"] },
+    { "code": "D003", "name": "纯牛奶", "price": 9.0, "category": "饮品", "tags": ["饮品"] },
+    { "code": "X001", "name": "圆筒冰淇淋", "price": 5.0, "category": "甜品", "tags": [] },
+    { "code": "M001", "name": "早餐满分蛋堡", "price": 15.5, "category": "早餐", "tags": ["早餐"] }
+  ],
+  "coupons": [
+    {
+      "couponId": "C001",
+      "name": "满30减12",
+      "threshold": 30.0,
+      "discount": 12.0,
+      "scope": "account",
+      "group": "满减",
+      "validFrom": "2026-10-01",
+      "validTo": "2026-12-31",
+      "note": "全渠道通用"
+    },
+    {
+      "couponId": "C002",
+      "name": "满50减25",
+      "threshold": 50.0,
+      "discount": 25.0,
+      "scope": "account",
+      "group": "满减",
+      "validFrom": "2026-10-01",
+      "validTo": "2026-12-31",
+      "note": "全渠道通用"
+    },
+    {
+      "couponId": "C003",
+      "name": "饮品立减5元",
+      "threshold": 0,
+      "discount": 5.0,
+      "scope": "account",
+      "group": "品类",
+      "validFrom": "2026-10-01",
+      "validTo": "2026-12-31",
+      "itemTags": ["饮品"],
+      "note": "限饮品"
+    },
+    {
+      "couponId": "C004",
+      "name": "门店专享 满35减18",
+      "threshold": 35.0,
+      "discount": 18.0,
+      "scope": "store",
+      "storeCode": "SH0001",
+      "group": "满减",
+      "validFrom": "2026-10-01",
+      "validTo": "2026-12-31",
+      "note": "仅限 SH0001 门店使用"
+    },
+    {
+      "couponId": "C005",
+      "name": "满80减40",
+      "threshold": 80.0,
+      "discount": 40.0,
+      "scope": "account",
+      "group": "满减",
+      "validFrom": "2026-10-01",
+      "validTo": "2026-12-31",
+      "note": "高门槛，用于演示「未达门槛」"
+    },
+    {
+      "couponId": "C006",
+      "name": "早餐套餐立减6",
+      "threshold": 0,
+      "discount": 6.0,
+      "scope": "account",
+      "group": "品类",
+      "validFrom": "2026-10-01",
+      "validTo": "2026-12-31",
+      "itemTags": ["早餐"],
+      "note": "限早餐时段餐品"
+    },
+    {
+      "couponId": "C007",
+      "name": "老券 满20减8",
+      "threshold": 20.0,
+      "discount": 8.0,
+      "scope": "account",
+      "group": "满减",
+      "validFrom": "2026-08-01",
+      "validTo": "2026-09-30",
+      "note": "已过期，用于演示「已过期」判定"
+    }
+  ]
+}

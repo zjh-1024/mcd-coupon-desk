@@ -1,0 +1,30 @@
+# 官方参考材料与本地研究资料（不随仓库发布）
+_official/
+_research/
+
+# 凭证：绝不入库
+.env
+*.env
+.mcp.json
+mcp.json
+mcd_token.txt
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 运行产物
+out/
+*.log
