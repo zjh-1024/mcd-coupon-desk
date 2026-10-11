@@ -193,10 +193,12 @@ mcd-coupon-desk/
 │   ├── report.py               结果渲染
 │   └── cli.py                  命令行入口
 ├── tests/
-│   ├── test_solver.py          核心算法测试
-│   └── test_textparse.py       返回文本解析测试
+│   ├── test_solver.py           核心算法测试
+│   ├── test_coupon_mapping.py   券名与券面解析测试
+│   └── test_textparse.py        返回文本解析测试
 ├── assets/
-│   └── demo-verdict.svg        演示结果图（README 首屏）
+│   ├── demo-verdict.svg         演示结果图（README 首屏）
+│   └── demo-verdict.png         同上，位图版（掘金文章配图）
 └── examples/sample_catalog.json 离线样例数据
 ```
 
