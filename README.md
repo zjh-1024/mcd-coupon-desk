@@ -15,6 +15,8 @@
 |:---:|:---:|:---:|:---:|
 | 五类不可用原因 + 还差多少钱 | 0/1 背包 DP 精确解 | 样例省 ¥35.00（49.3%） | 无需 Token |
 
+<img src="assets/demo-verdict.svg" alt="同一次点餐的四种下单方案对比：拆单最优到手 ¥36.00，原价 ¥71.00" width="100%">
+
 麦当劳的优惠信息分散在门店菜单、账号券包、门店券包和活动日历里。用户真正卡住的
 不是「有没有券」，而是三个具体问题：
 
@@ -193,6 +195,8 @@ mcd-coupon-desk/
 ├── tests/
 │   ├── test_solver.py          核心算法测试
 │   └── test_textparse.py       返回文本解析测试
+├── assets/
+│   └── demo-verdict.svg        演示结果图（README 首屏）
 └── examples/sample_catalog.json 离线样例数据
 ```
 

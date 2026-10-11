@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" font-family="'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#fffaf0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1200" height="6" fill="#DA291C"/>
+
+  <text x="64" y="84" font-size="40" font-weight="700" fill="#1f2328">麦麦券务台 · mcd-coupon-desk</text>
+  <text x="64" y="124" font-size="22" fill="#57606a">券能不能用 · 怎么摆最省 · 现在买还是等</text>
+
+  <line x1="64" y1="152" x2="1136" y2="152" stroke="#e4e7eb" stroke-width="2"/>
+
+  <text x="64" y="192" font-size="19" fill="#8c959f">同一次点餐（巨无霸 + 麦辣鸡腿堡 + 薯条 + 可乐），四种下单方式</text>
+
+  <!-- 表头 -->
+  <text x="80" y="246" font-size="19" font-weight="600" fill="#57606a">方案</text>
+  <text x="430" y="246" font-size="19" font-weight="600" fill="#57606a">订单数</text>
+  <text x="590" y="246" font-size="19" font-weight="600" fill="#57606a">小计</text>
+  <text x="750" y="246" font-size="19" font-weight="600" fill="#57606a">节省</text>
+  <text x="930" y="246" font-size="19" font-weight="600" fill="#57606a">到手价</text>
+  <line x1="80" y1="262" x2="1120" y2="262" stroke="#d0d7de" stroke-width="2"/>
+
+  <!-- 行 1 最优 -->
+  <rect x="64" y="276" width="1056" height="60" rx="10" fill="#fff4d6"/>
+  <text x="80" y="315" font-size="21" font-weight="700" fill="#1f2328">拆单最优</text>
+  <text x="430" y="315" font-size="21" fill="#1f2328">2</text>
+  <text x="590" y="315" font-size="21" fill="#1f2328">¥71.00</text>
+  <text x="750" y="315" font-size="21" font-weight="700" fill="#DA291C">−¥35.00</text>
+  <text x="930" y="315" font-size="21" font-weight="700" fill="#DA291C">¥36.00</text>
+  <text x="1060" y="315" font-size="18" fill="#8c959f">← 最优</text>
+
+  <!-- 行 2 -->
+  <text x="80" y="382" font-size="20" fill="#3d444d">多券叠加</text>
+  <text x="430" y="382" font-size="20" fill="#3d444d">1</text>
+  <text x="590" y="382" font-size="20" fill="#3d444d">¥71.00</text>
+  <text x="750" y="382" font-size="20" fill="#3d444d">−¥30.00</text>
+  <text x="930" y="382" font-size="20" fill="#3d444d">¥41.00</text>
+
+  <!-- 行 3 -->
+  <text x="80" y="436" font-size="20" fill="#3d444d">单券最优</text>
+  <text x="430" y="436" font-size="20" fill="#3d444d">1</text>
+  <text x="590" y="436" font-size="20" fill="#3d444d">¥71.00</text>
+  <text x="750" y="436" font-size="20" fill="#3d444d">−¥25.00</text>
+  <text x="930" y="436" font-size="20" fill="#3d444d">¥46.00</text>
+
+  <!-- 行 4 -->
+  <text x="80" y="490" font-size="20" fill="#8c959f">原价直选</text>
+  <text x="430" y="490" font-size="20" fill="#8c959f">1</text>
+  <text x="590" y="490" font-size="20" fill="#8c959f">¥71.00</text>
+  <text x="750" y="490" font-size="20" fill="#8c959f">¥0.00</text>
+  <text x="930" y="490" font-size="20" fill="#8c959f">¥71.00</text>
+
+  <line x1="64" y1="522" x2="1136" y2="522" stroke="#e4e7eb" stroke-width="2"/>
+
+  <text x="64" y="566" font-size="22" fill="#1f2328">拆成 2 笔订单，两张满减券同时生效 —— </text>
+  <text x="64" y="602" font-size="22" font-weight="700" fill="#DA291C">比合并下单多省 ¥5.00，整体省 49.3%</text>
+
+  <text x="1136" y="600" font-size="16" fill="#8c959f" text-anchor="end">零第三方依赖 · 无需 Token 即可复现</text>
+</svg>
