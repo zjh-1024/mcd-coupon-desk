@@ -1,8 +1,19 @@
 # 麦麦券务台 · mcd-coupon-desk
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-FFC72C?style=flat-square)](LICENSE)
+[![MCP](https://img.shields.io/badge/MCP-mcp.mcd.cn-DA291C?style=flat-square)](https://mcp.mcd.cn)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![Dependencies](https://img.shields.io/badge/dependencies-none-3FB950?style=flat-square)](#30-秒上手不需要-token)
+[![Tests](https://img.shields.io/badge/tests-49%20passing-3FB950?style=flat-square)](#运行测试)
+[![Token](https://img.shields.io/badge/token-not%20required-blue?style=flat-square)](#30-秒上手不需要-token)
+
 **把麦当劳点餐里「钱」这件事，做成一道确定性计算题。**
 
 > 券能不能用 · 怎么摆最省 · 现在买还是等
+
+| 🎟️ 券可用性判定 | 🧮 凑单求解 | 💸 拆单收益 | 🔑 使用门槛 |
+|:---:|:---:|:---:|:---:|
+| 五类不可用原因 + 还差多少钱 | 0/1 背包 DP 精确解 | 样例省 ¥35.00（49.3%） | 无需 Token |
 
 麦当劳的优惠信息分散在门店菜单、账号券包、门店券包和活动日历里。用户真正卡住的
 不是「有没有券」，而是三个具体问题：
@@ -12,6 +23,8 @@
 3. **现在买是不是最便宜的时候？** —— 还是等个两天活动更值？
 
 本项目把这三个问题全部交给**确定性算法**，输出可复核、可追溯的答案。
+
+**不猜、不排序**：每一分钱都能被复算 —— 哪张券为什么能用 / 不能用、凑到门槛最少要加几件、拆成两单能多省多少。
 
 > 本作品为「麦当劳程序员创意开发大赛」参赛项目，非麦当劳官方产品。
 > 餐品信息、价格与优惠规则以麦当劳官方渠道的实时结果为准。
