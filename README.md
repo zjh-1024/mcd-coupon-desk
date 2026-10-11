@@ -21,7 +21,7 @@
 ## 30 秒上手（不需要 Token）
 
 ```bash
-git clone https://github.com/<your-name>/mcd-coupon-desk.git
+git clone https://github.com/zjh-1024/mcd-coupon-desk.git
 cd mcd-coupon-desk
 python mcd-coupon-desk.py demo
 ```
@@ -186,8 +186,6 @@ mcd-coupon-desk/
 ---
 
 ## 运行测试
-
-运行测试：
 
 ```bash
 python -m unittest discover -s tests -v
