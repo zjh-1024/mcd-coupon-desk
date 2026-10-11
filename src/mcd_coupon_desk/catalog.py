@@ -217,8 +217,8 @@ def coupon_from_raw(raw: dict, scope: str = SCOPE_ACCOUNT) -> Coupon:
     真实字段（2026-10-10 实测 `query-store-coupons`，字段名取自服务端自带的字段说明）::
 
         {"title": "9.9元中杯冰美式",
-         "couponId": "264B97DB...",          # 券ID，分组标识
-         "couponCode": "MCD6R124...",        # 券码，核销凭据
+         "couponId": "SYNTH-COUPON-ID-0001",   # 券ID，分组标识（此处为合成值）
+         "couponCode": "SYNTH-CODE-0001",      # 券码，核销凭据（此处为合成值）
          "tradeDateTime": "2026-10-10 00:00:00-2026-10-16 23:59:59",
          "products": [{"productCode": "507411", "productName": "麦咖啡™冰美式中杯"}]}
 

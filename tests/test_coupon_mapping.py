@@ -28,11 +28,12 @@ from mcd_coupon_desk.models import (  # noqa: E402
     SCOPE_STORE,
 )
 
-# 实测的 query-store-coupons 单条返回
-REAL_COUPON = {
+# 结构取自实测的 query-store-coupons 单条返回；
+# ⚠️ couponId 与 couponCode 已替换为**合成值** —— 真实券码是核销凭据，不得入库。
+SAMPLE_COUPON = {
     "title": "9.9元中杯冰美式",
-    "couponId": "264B97DBE02BE6CF996AA6914151C4A9",
-    "couponCode": "MCD6R124JM0L96009B100",
+    "couponId": "SYNTH-COUPON-ID-0001",
+    "couponCode": "SYNTH-CODE-0001",
     "tradeDateTime": "2026-10-10 00:00:00-2026-10-16 23:59:59",
     "products": [{"productCode": "507411", "productName": "麦咖啡™冰美式中杯"}],
     "promotionId": "112023002",
@@ -83,10 +84,10 @@ class TestValidityParsing(unittest.TestCase):
 
 class TestCouponFromRaw(unittest.TestCase):
     def test_real_sample_maps_correctly(self):
-        coupon = coupon_from_raw(REAL_COUPON, scope=SCOPE_STORE)
+        coupon = coupon_from_raw(SAMPLE_COUPON, scope=SCOPE_STORE)
         self.assertEqual(coupon.name, "9.9元中杯冰美式")
-        self.assertEqual(coupon.coupon_id, "264B97DBE02BE6CF996AA6914151C4A9")
-        self.assertEqual(coupon.coupon_code, "MCD6R124JM0L96009B100")
+        self.assertEqual(coupon.coupon_id, "SYNTH-COUPON-ID-0001")
+        self.assertEqual(coupon.coupon_code, "SYNTH-CODE-0001")
         self.assertEqual(coupon.fixed_price_cents, 990)
         self.assertTrue(coupon.is_fixed_price)
         self.assertEqual(coupon.item_codes, ("507411",))
@@ -99,7 +100,7 @@ class TestFixedPriceEvaluation(unittest.TestCase):
     """「固定价券」的省额必须由购物车里的商品原价现算。"""
 
     def setUp(self):
-        self.coupon = coupon_from_raw(REAL_COUPON, scope=SCOPE_STORE)
+        self.coupon = coupon_from_raw(SAMPLE_COUPON, scope=SCOPE_STORE)
 
     def test_saving_computed_from_menu_price(self):
         cart = [Line(Item("507411", "麦咖啡™冰美式中杯", 1700))]
@@ -122,7 +123,7 @@ class TestFixedPriceEvaluation(unittest.TestCase):
 
     def test_picks_most_expensive_applicable_item(self):
         coupon = coupon_from_raw(
-            {**REAL_COUPON, "products": [
+            {**SAMPLE_COUPON, "products": [
                 {"productCode": "A", "productName": "小杯"},
                 {"productCode": "B", "productName": "大杯"},
             ]},
@@ -135,7 +136,7 @@ class TestFixedPriceEvaluation(unittest.TestCase):
 
     def test_free_coupon_saves_full_price(self):
         coupon = coupon_from_raw(
-            {**REAL_COUPON, "title": "免费脆薯饼",
+            {**SAMPLE_COUPON, "title": "免费脆薯饼",
              "products": [{"productCode": "S9", "productName": "脆薯饼"}]},
             scope=SCOPE_STORE,
         )
