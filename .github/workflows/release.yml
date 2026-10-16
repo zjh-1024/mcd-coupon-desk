@@ -1,0 +1,91 @@
+name: release
+
+# 打 tag（v*）时构建 Windows 单文件 exe，并自动创建 Release 附上成品，
+# 这样「不想装 Python」的人也能一键下载运行。
+# 也支持手动触发（workflow_dispatch），用于验证构建链路 —— 手动触发不建 Release。
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+# 创建 Release 需要写权限；其余步骤保持只读
+permissions:
+  contents: write
+
+jobs:
+  windows-exe:
+    name: 构建 Windows exe 并发布
+    runs-on: windows-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装 PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller
+
+      # 先跑测试：exe 里的就是这份代码，测试不过就不该发版
+      - name: 运行单元测试
+        run: python -m unittest discover -s tests -v
+
+      # 源码形态也跑一次 demo，确认打包前应用本身是通的
+      - name: 源码冒烟（demo 全流程）
+        run: python mcd-coupon-desk.py demo
+
+      # 注意：--add-data / --paths 一律用**绝对路径**。
+      # 它们会被解析为相对 --specpath（而非 cwd），用相对路径会去找 build/examples 而失败。
+      - name: 打包单文件 exe
+        run: |
+          $root = (Get-Location).Path
+          python -m PyInstaller --noconfirm --clean --onefile --noconsole --name mcd-coupon-desk --paths "$root/src" --add-data "$root/examples;examples" --distpath "$root/dist" --workpath "$root/build" --specpath "$root/build" "$root/packaging/exe_entry.py"
+
+      # --noconsole 只表示「双击时不弹控制台」；从已有控制台启动时 stdout 仍然有效，
+      # 因此可以真的跑一遍 demo 并核对结果，而不是只看文件存不存在。
+      # 断言只比对 ASCII 数字（36.00），避免 PowerShell 控制台编码影响 ¥ 的匹配。
+      - name: 冒烟测试 exe（跑 demo 并核对到手价）
+        run: |
+          $exe = Join-Path (Get-Location).Path "dist/mcd-coupon-desk.exe"
+          if (-not (Test-Path $exe)) { throw "未生成 $exe" }
+          $size = (Get-Item $exe).Length
+          Write-Host ("exe 大小: {0:N0} 字节" -f $size)
+          if ($size -lt 5MB) { throw "exe 体积异常（$size 字节），疑似缺少 tkinter 等依赖" }
+
+          $out = (& $exe demo 2>&1 | Out-String)
+          $code = $LASTEXITCODE
+          Write-Host $out
+          if ($code -ne 0) { throw "exe demo 退出码 $code" }
+          if ($out -notmatch "36\.00") { throw "exe demo 输出里没有预期的到手价，打包产物可能不完整" }
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcd-coupon-desk-windows-x64
+          path: dist/mcd-coupon-desk.exe
+          if-no-files-found: error
+
+      # 用 runner 自带的 gh 建 Release，避免引入第三方 action。
+      # 注意：Actions 的 pwsh 把 $ErrorActionPreference 设为 Stop，而 PowerShell 7.4+
+      # 起「原生命令写 stderr」会升级为终止错误 —— 那样下面用来探测 Release 是否存在的
+      # gh release view 会把正常的「不存在」直接抛出。所以显式关掉这个行为。
+      - name: 创建 Release 并附上 exe
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $ErrorActionPreference = "Continue"
+          $tag = "${{ github.ref_name }}"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tag 已存在，改为覆盖附件"
+            gh release upload $tag dist/mcd-coupon-desk.exe --clobber
+          } else {
+            gh release create $tag dist/mcd-coupon-desk.exe --title "$tag" --generate-notes --verify-tag
+          }
+          if ($LASTEXITCODE -ne 0) { throw "发布 Release $tag 失败" }
