@@ -131,6 +131,39 @@ _COUPON_BLOCK = re.compile(r"(?m)^##[ \t]+(.+?)[ \t]*$")
 _COUPON_FIELD = re.compile(r"(?m)^-[ \t]+\*\*(.+?)\*\*[:：][ \t]*(.*)$")
 _FIELD_PRICE = re.compile(r"¥[ \t]*(\d+(?:\.\d+)?)")
 
+# 有效期区间：「2026-10-10 00:00:00-2026-10-16 23:59:59」
+# 连字符既是日期分隔符又是区间分隔符，所以必须带上下文匹配，不能简单 split('-')
+_VALID_RANGE = re.compile(
+    r"(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2}(?::\d{2})?)?)"
+    r"\s*[-~至]\s*"
+    r"(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2}(?::\d{2})?)?)"
+)
+
+
+def split_validity(text: str) -> tuple[str, str, str]:
+    """解析有效期，并把尾巴上的**可用时段**单独切出来。
+
+    实测样例::
+
+        2026-10-17 05:00-2026-10-17 10:29 周六 05:00-10:29
+        └──────── 有效区间 ────────┘ └── 可用时段 ──┘
+
+    返回 (起始, 截止, 时段文本)。识别不到区间时退化为 ("", 整串, "")。
+    """
+    raw = str(text or "").strip()
+    if not raw:
+        return "", "", ""
+    match = _VALID_RANGE.search(raw)
+    if match:
+        return match.group(1), match.group(2), raw[match.end():].strip()
+    return "", raw, ""
+
+
+def parse_validity(text: str) -> tuple[str, str]:
+    """从 `tradeDateTime` 解析出 (起始, 截止)。"""
+    start, end, _period = split_validity(text)
+    return start, end
+
 
 def parse_coupon_markdown(text: Any) -> list[dict]:
     """解析 `query-my-coupons` 的 markdown 券列表。
@@ -139,10 +172,16 @@ def parse_coupon_markdown(text: Any) -> list[dict]:
 
         [{"title": "9.9元中杯冰美式", "priceCents": 990,
           "tradeDateTime": "2026-10-10 00:00-2026-10-16 23:59",
-          "tags": "到店专用、外送专用"}]
+          "tags": "到店专用、外送专用", "received": "6日前收到"}]
+
+    实测（2026-10-16，真实账号）字段比早期样本多两类，都已接住：
+      * `领取时间`（如「今日收到」）—— 展示用；
+      * 有效期尾巴上的**可用时段**（如「2026-10-17 05:00-2026-10-17 10:29 周六 05:00-10:29」
+        里的「周六 05:00-10:29」）—— 交给 `schedule.parse_period` 解析，
+        用来判断「此刻能不能用 / 下次什么时候能用」。
 
     ⚠️ 该接口**不返回适用商品**，因此解析出的券无法直接参与精确求解。
-    调用方应据此降级（本项目里这类券只用于展示，不进优化器）。
+    调用方应据此降级（本项目里这类券只用于展示与建议，不进优化器）。
     """
     raw = str(text or "")
     heads = list(_COUPON_BLOCK.finditer(raw))
@@ -152,13 +191,17 @@ def parse_coupon_markdown(text: Any) -> list[dict]:
         body = raw[head.end():end]
         fields = {k.strip(): v.strip() for k, v in _COUPON_FIELD.findall(body)}
         price_match = _FIELD_PRICE.search(fields.get("优惠", ""))
+        validity = fields.get("有效期", "")
+        _start, _end, period_text = split_validity(validity)
         blocks.append({
             "title": head.group(1).strip(),
             "priceCents": (
                 int(round(float(price_match.group(1)) * 100)) if price_match else None
             ),
-            "tradeDateTime": fields.get("有效期", ""),
+            "tradeDateTime": validity,
+            "periodText": period_text,
             "tags": fields.get("标签", ""),
+            "received": fields.get("领取时间", ""),
         })
     return blocks
 
@@ -218,5 +261,7 @@ __all__ = [
     "is_empty_result",
     "parse_coupon_markdown",
     "parse_nutrition_table",
+    "parse_validity",
     "require_ok",
+    "split_validity",
 ]

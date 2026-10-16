@@ -40,7 +40,16 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .mcp_client import McpClient, McpError
-from .models import SCOPE_ACCOUNT, SCOPE_STORE, Catalog, Coupon, Item
+from .models import (
+    SCOPE_ACCOUNT,
+    SCOPE_STORE,
+    Catalog,
+    Coupon,
+    Item,
+    PointsAccount,
+    RewardProduct,
+)
+from .schedule import parse_period
 from .textparse import (
     PayloadError,
     extract_payload,
@@ -48,6 +57,7 @@ from .textparse import (
     parse_coupon_markdown,
     parse_nutrition_table,
     require_ok,
+    split_validity,
 )
 
 # 麦当劳 MCP 的枚举值（来自服务端 inputSchema，实测）
@@ -61,6 +71,10 @@ BE_TYPE_GROUP_MEAL = 6      # 企业团餐
 
 # 这些场景必须带 beCode（到店自取不需要）
 BE_TYPES_NEEDING_BE_CODE = (BE_TYPE_DRIVE_THRU, BE_TYPE_DELIVERY, BE_TYPE_GROUP_MEAL)
+
+# 积分商城的类目筛选：1>4 = 商品券（可兑换的餐品券）。
+# 见 `McpSource.points_products` 的说明。
+CAT_RULE_FOOD_COUPONS = "1>4"
 
 
 # ---------------------------------------------------------------- 通用取值工具
@@ -135,11 +149,7 @@ _TITLE_FREE = re.compile(r"^\s*免费")
 _TITLE_THRESHOLD = re.compile(r"满\s*(\d+(?:\.\d+)?)\s*减\s*(\d+(?:\.\d+)?)")
 
 # 有效期区间：「2026-10-10 00:00:00-2026-10-16 23:59:59」
-_VALID_RANGE = re.compile(
-    r"(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2}(?::\d{2})?)?)"
-    r"\s*[-~至]\s*"
-    r"(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2}(?::\d{2})?)?)"
-)
+# 正则与切分逻辑统一放在 textparse.split_validity，此处不再重复定义。
 
 
 def parse_coupon_price(title: str) -> int | None:
@@ -180,17 +190,11 @@ def parse_threshold_discount(title: str) -> tuple[int, int]:
 def parse_validity(text: str) -> tuple[str, str]:
     """从 `tradeDateTime` 解析出 (起始, 截止)。
 
-    实测格式为「2026-10-10 00:00:00-2026-10-16 23:59:59」——
-    连字符既是日期分隔符又是区间分隔符，所以必须用带上下文的模式匹配，
-    不能简单 split('-')。
+    切分逻辑（含「时段尾巴」的剥离）统一在 `textparse.split_validity`，
+    这里只做转发，避免两处正则各自漂移。
     """
-    raw = str(text or "").strip()
-    if not raw:
-        return "", ""
-    match = _VALID_RANGE.search(raw)
-    if match:
-        return match.group(1), match.group(2)
-    return "", raw
+    start, end, _period = split_validity(text)
+    return start, end
 
 
 # ---------------------------------------------------------------- 原始对象 → 领域模型
@@ -244,15 +248,24 @@ def coupon_from_raw(raw: dict, scope: str = SCOPE_ACCOUNT) -> Coupon:
     else:
         fixed_price = parse_coupon_price(title)
         threshold, discount = parse_threshold_discount(title)
+        # markdown 券卡把券面价写在「**优惠**: ¥13.5 (用券价格)」里
+        # （券名可能完全不含价格，如「中薯条买一送一」），因此优先采用它。
+        markdown_price = raw.get("priceCents")
+        if fixed_price is None and markdown_price is not None:
+            fixed_price = int(markdown_price)
 
     # 有效期同理：显式字段优先，否则解析 tradeDateTime 区间
     explicit_from = str(pick(raw, "validFrom", "startTime", default=""))
     explicit_to = str(pick(raw, "validTo", "endTime", default=""))
+    period_text = str(pick(raw, "periodText", "period", default=""))
     if explicit_from or explicit_to:
         valid_from, valid_to = explicit_from, explicit_to
     else:
-        valid_from, valid_to = parse_validity(str(pick(raw, "tradeDateTime", default="")))
+        valid_from, valid_to, tail = split_validity(str(pick(raw, "tradeDateTime", default="")))
+        # 有效区间后面挂的「周六 05:00-10:29」才是真正的可用时段
+        period_text = period_text or tail
 
+    # 券面价：优先用 markdown 里「**优惠**: ¥13.5 (用券价格)」解析出的显式价格
     products = raw.get("products") or []
     product_codes = tuple(
         str(p.get("productCode"))
@@ -279,6 +292,70 @@ def coupon_from_raw(raw: dict, scope: str = SCOPE_ACCOUNT) -> Coupon:
         fixed_price_cents=fixed_price,
         coupon_code=str(pick(raw, "couponCode", "coupon_code", default="")),
         note="、".join(product_names)[:120] or str(pick(raw, "remark", "note", default="")),
+        period=parse_period(period_text),
+        # 只认显式的 badges 键。刻意**不**回退到 tags ——
+        # tags 已经被 item_tags 用作「适用商品标签」，复用会把
+        # 「到店专用」这类渠道标记伪装成商品约束，污染商品匹配。
+        badges=_as_tuple(raw.get("badges")),
+        received_text=str(pick(raw, "received", "receivedTime", default="")),
+    )
+
+
+def _to_int(value: Any) -> int:
+    """把服务端返回的字符串数字转成 int（实测积分字段全是 "804" 这种字符串）。"""
+    if value is None or value == "":
+        return 0
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return 0
+
+
+def account_from_raw(raw: dict) -> PointsAccount:
+    """把 `query-my-account` 的返回翻译成 PointsAccount。
+
+    实测字段（2026-10-16，真实账号）::
+
+        {"accountId": "0200…", "currency": "麦享会积分",
+         "availablePoint": "804", "accumulativePoint": "2096", "usedPoint": "1292",
+         "expiredPoint": "0", "frozenPoint": "0",
+         "currentMouthExpirePoint": "0", "nextMouthExpirePoint": "0",
+         "lastMouthExpirePoint": "0"}
+
+    ⚠️ 注意上游把 month 拼成了 `Mouth`（`currentMouthExpirePoint`）——
+    这是服务端字段名，不改它，但候选表里同时接受拼写正确的变体以防未来修正。
+    """
+    raw = raw or {}
+    return PointsAccount(
+        account_id=str(pick(raw, "accountId", "account_id", default="")),
+        currency=_clean(pick(raw, "currency", default="")),
+        available=_to_int(pick(raw, "availablePoint", "available", default=0)),
+        accumulative=_to_int(pick(raw, "accumulativePoint", "accumulative", default=0)),
+        used=_to_int(pick(raw, "usedPoint", "used", default=0)),
+        expired=_to_int(pick(raw, "expiredPoint", "expired", default=0)),
+        frozen=_to_int(pick(raw, "frozenPoint", "frozen", default=0)),
+        expiring_this_month=_to_int(pick(raw, "currentMouthExpirePoint",
+                                         "currentMonthExpirePoint", default=0)),
+        expiring_next_month=_to_int(pick(raw, "nextMouthExpirePoint",
+                                         "nextMonthExpirePoint", default=0)),
+        expiring_last_month=_to_int(pick(raw, "lastMouthExpirePoint",
+                                         "lastMonthExpirePoint", default=0)),
+    )
+
+
+def reward_from_raw(raw: dict) -> RewardProduct:
+    """把 `mall-points-products` 的一条商品翻译成 RewardProduct。"""
+    raw = raw or {}
+    return RewardProduct(
+        spu_id=_to_int(pick(raw, "spuId", "spu_id", default=0)),
+        name=_clean(pick(raw, "spuName", "name", default="")),
+        points=_to_int(pick(raw, "point", "points", default=0)),
+        price_yuan=str(pick(raw, "price", default="")),
+        selling=_clean(pick(raw, "selling", "description", default="")),
+        category=_clean(pick(raw, "catName", "category", default="")),
+        status=_to_int(pick(raw, "status", default=0)),
+        up_time=str(pick(raw, "upTime", default="")),
+        down_time=str(pick(raw, "downTime", default="")),
     )
 
 
@@ -511,11 +588,50 @@ class McpSource:
 
         return [
             coupon_from_raw(
-                {"title": block["title"], "tradeDateTime": block["tradeDateTime"]},
+                {
+                    "title": block["title"],
+                    "tradeDateTime": block["tradeDateTime"],
+                    "periodText": block.get("periodText", ""),
+                    "priceCents": block.get("priceCents"),
+                    "received": block.get("received", ""),
+                    # 「到店专用、外送专用」这类标记放进 badges，不放进 item_tags
+                    "badges": block.get("tags", ""),
+                },
                 scope=SCOPE_ACCOUNT,
             )
             for block in parse_coupon_markdown(text)
         ]
+
+    # -------------------------------------------------- 我的账号（真实数据）
+
+    def my_account(self) -> PointsAccount:
+        """查询当前 Token 所属账号的积分账户。
+
+        这是「登录」的实质动作：MCP Token 本身已经绑定到用户账号，
+        能取回账号数据即说明登录有效 —— 项目里**不存在也不需要**账号密码。
+        """
+        data = self._call(self.client, "query-my-account", self._args("query-my-account", {}))
+        return account_from_raw(data if isinstance(data, dict) else {})
+
+    def my_coupons(self) -> list[Coupon]:
+        """我拥有的券（含可用时段、到期标记，用于展示与建议）。
+
+        与 `store_coupons()` 的区别：门店券带「适用商品编码」，能进求解器精确算；
+        账号券**不带**适用商品，因此只用于展示和时机建议 —— 对它算省额就是虚报。
+        """
+        return self.account_coupons()
+
+    def points_products(self, cat_rule_ids: str = CAT_RULE_FOOD_COUPONS) -> list[RewardProduct]:
+        """积分商城的可兑换商品（只读列表）。
+
+        默认只取 `1>4`（商品券），因为对一个「把一顿饭点得更省」的工具来说，
+        生日派对、联名球鞋这类商品是噪音 —— 实测不过滤时 50 条里
+        有 20 多条与点餐无关。需要全量时传 `cat_rule_ids=""`。
+        """
+        args = self._args("mall-points-products", {"catRuleIds": cat_rule_ids or None})
+        data = self._call(self.client, "mall-points-products", args)
+        rows = data if isinstance(data, list) else _iter_rows(data)
+        return [reward_from_raw(r) for r in rows if isinstance(r, dict)]
 
     def store_coupons(self, store_code: str) -> list[Coupon]:
         """指定门店 + 订单类型下**可用的**券 —— 本项目的权威数据源。
@@ -620,15 +736,18 @@ __all__ = [
     "BE_TYPE_DRIVE_THRU",
     "BE_TYPE_GROUP_MEAL",
     "BE_TYPE_STORE",
+    "CAT_RULE_FOOD_COUPONS",
     "McpSource",
     "OfflineSource",
     "ORDER_TYPE_DELIVERY",
     "ORDER_TYPE_STORE",
+    "account_from_raw",
     "coupon_from_raw",
     "item_from_raw",
     "parse_coupon_price",
     "parse_threshold_discount",
     "parse_validity",
     "pick",
+    "reward_from_raw",
     "to_cents",
 ]

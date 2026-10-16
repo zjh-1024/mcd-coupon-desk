@@ -14,6 +14,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
+from .schedule import Period
+
 
 # ---------------------------------------------------------------- 商品
 
@@ -134,6 +136,15 @@ class Coupon:
     # 券码：核销凭据。同一 couponId 可对应多个 couponCode。
     coupon_code: str = ""
     note: str = ""
+    # 「可用时段」—— 有效期内还限哪几天、几点到几点（如早餐券「周六 05:00-10:29」）。
+    # 与有效期是**两层独立约束**：只判有效期会得出「现在就能用」的错误结论。
+    period: Period = field(default_factory=Period)
+    # 券的展示标签，如 ('今日到期', '到店专用')。
+    # **刻意不参与求解** —— 这些是渠道 / 时效标记，不是「适用商品」，
+    # 塞进 item_tags 会污染商品匹配，把「不知道适用商品」伪装成「商品不匹配」。
+    badges: tuple[str, ...] = ()
+    # 领取时间描述（如「今日收到」），仅用于展示。
+    received_text: str = ""
 
     @property
     def is_fixed_price(self) -> bool:
@@ -173,6 +184,7 @@ REASON_THRESHOLD = "THRESHOLD_NOT_MET"
 REASON_ITEM_MISMATCH = "ITEM_MISMATCH"
 REASON_ALREADY_USED = "ALREADY_USED"
 REASON_NOT_BENEFICIAL = "NOT_BENEFICIAL"
+REASON_OUT_OF_PERIOD = "OUT_OF_PERIOD"
 
 REASON_TEXT = {
     REASON_OK: "可用",
@@ -183,6 +195,7 @@ REASON_TEXT = {
     REASON_ITEM_MISMATCH: "购物车中无适用商品",
     REASON_ALREADY_USED: "本单已使用过同类券",
     REASON_NOT_BENEFICIAL: "券面价高于商品原价，用了反而更贵",
+    REASON_OUT_OF_PERIOD: "当前不在可用时段",
 }
 
 
@@ -204,3 +217,138 @@ class Verdict:
         if self.reason_code == REASON_THRESHOLD and self.shortfall_cents:
             detail += f"（还差 ¥{self.shortfall_cents / 100:.2f}）"
         return f"[{mark}] {self.coupon.name} · {detail}"
+
+
+# ---------------------------------------------------------------- 积分账户
+
+@dataclass(frozen=True)
+class PointsAccount:
+    """麦享会积分账户（对应 MCP 的 `query-my-account`）。
+
+    实测返回的全部字段都是**字符串数字**（"804"），这里统一转成 int。
+    积分不是金额，因此**不套用「分」的口径**，避免与价格字段混淆。
+    """
+
+    account_id: str = ""
+    currency: str = ""
+    available: int = 0            # 可用积分
+    accumulative: int = 0         # 累计积分
+    used: int = 0                 # 已使用
+    expired: int = 0              # 已过期
+    frozen: int = 0               # 冻结中
+    expiring_this_month: int = 0  # 本月将过期
+    expiring_next_month: int = 0  # 下月将过期
+    expiring_last_month: int = 0  # 上月已过期
+
+    @property
+    def masked_id(self) -> str:
+        """账号 ID 脱敏展示：只保留末 4 位。
+
+        账号 ID 属于个人标识，界面上没有完整展示的必要；
+        保留末 4 位既够用户确认「是我的账号」，又不泄露完整标识。
+        """
+        raw = self.account_id
+        if not raw:
+            return "—"
+        return f"****{raw[-4:]}" if len(raw) > 4 else raw
+
+    @property
+    def has_data(self) -> bool:
+        return bool(self.account_id or self.currency or self.available or self.accumulative)
+
+
+# ---------------------------------------------------------------- 积分商城
+
+# 商品状态（来自服务端字段说明）
+REWARD_IN_STOCK = 2        # 上架（可取）
+REWARD_STATUS_TEXT = {
+    1: "仓库中",
+    2: "上架",
+    3: "售罄",
+    4: "下架",
+    5: "预热",
+}
+
+
+@dataclass(frozen=True)
+class RewardProduct:
+    """积分商城里的一件可兑换商品（对应 MCP 的 `mall-points-products`）。
+
+    `points = 0` 的商品（生日派对、品鉴会等）是**用钱买、不耗积分**的，
+    推荐时必须单独归类 —— 否则会出现「0 积分可兑换生日派对」这种误导。
+    """
+
+    spu_id: int = 0
+    name: str = ""
+    points: int = 0
+    price_yuan: str = ""
+    selling: str = ""
+    category: str = ""
+    status: int = 0
+    up_time: str = ""
+    down_time: str = ""
+
+    @property
+    def status_text(self) -> str:
+        return REWARD_STATUS_TEXT.get(self.status, str(self.status))
+
+    @property
+    def costs_points(self) -> bool:
+        """是否真的消耗积分（0 积分商品只是付钱商品）。"""
+        return self.points > 0
+
+    def redeemable_at(self, moment) -> bool:
+        """此刻是否处于可兑换窗口：已上架，且当前时间落在起止之间。"""
+        return self.state_text(moment) == "可兑换"
+
+    def state_text(self, moment) -> str:
+        """展示用的可兑换状态。
+
+        实测 `mall-points-products` 会把**已经下架但 status 仍为 2** 的历史商品
+        一起返回（如兑换期早已结束的旧餐券），因此不能只看 status，
+        必须把上下架时间也纳入判断，否则界面会给出「可兑换」的错误暗示。
+        """
+        from .schedule import parse_datetime
+
+        if self.status != REWARD_IN_STOCK:
+            return self.status_text
+        start = parse_datetime(self.up_time)
+        end = parse_datetime(self.down_time)
+        if start and moment < start:
+            return "未开始"
+        if end and moment > end:
+            return "已结束"
+        return "可兑换"
+
+    def affordable(self, points: int) -> bool:
+        return self.costs_points and self.points <= points
+
+
+# ---------------------------------------------------------------- 建议
+
+ADVICE_URGENT = "urgent"     # 会损失已有权益，优先处理
+ADVICE_TIP = "tip"           # 能省钱 / 能用上的机会
+ADVICE_INFO = "info"         # 中性信息
+
+ADVICE_LEVEL_TEXT = {
+    ADVICE_URGENT: "优先",
+    ADVICE_TIP: "机会",
+    ADVICE_INFO: "提示",
+}
+
+
+@dataclass(frozen=True)
+class Advice:
+    """一条基于真实账号数据得出的建议。
+
+    每条建议都由确定性规则算出（见 `advisor.py`），不由大模型生成 ——
+    这样用户能顺着数字自己复核「为什么推荐这个」。
+    """
+
+    level: str
+    title: str
+    detail: str = ""
+
+    @property
+    def level_text(self) -> str:
+        return ADVICE_LEVEL_TEXT.get(self.level, self.level)

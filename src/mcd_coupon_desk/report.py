@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import unicodedata
 
-from .models import SCOPE_STORE, Line, Verdict
+from .models import SCOPE_STORE, Advice, Coupon, Line, PointsAccount, Verdict
 from .solver import Plan, Solution
 
 
@@ -125,6 +125,61 @@ def render_summary(solution: Solution) -> str:
     return "\n".join(out)
 
 
+def render_advice(advices: list[Advice]) -> str:
+    """渲染建议列表。级别用中文标签，保持与其它报告一致的排版。"""
+    out = ["建议", _rule()]
+    if not advices:
+        out.append("（暂无建议：没有需要特别提醒的到期、时段或积分事项）")
+        return "\n".join(out)
+    for item in advices:
+        out.append(f"[{item.level_text}] {item.title}")
+        if item.detail:
+            out.append(f"       {item.detail}")
+    return "\n".join(out)
+
+
+def render_account(account: PointsAccount, coupons: list[Coupon] | None = None) -> str:
+    """渲染积分账户 + 我的券。账号 ID 只展示末 4 位。"""
+    out = ["我的账号", _rule()]
+    if not account.has_data:
+        out.append("未取到账号信息。")
+        return "\n".join(out)
+
+    out.append(f"账号 {account.masked_id}　{account.currency or '积分'}")
+    out.append(
+        f"可用 {account.available} 分　累计 {account.accumulative} 分　"
+        f"已用 {account.used} 分"
+    )
+    out.append(
+        f"本月将过期 {account.expiring_this_month} 分　"
+        f"下月将过期 {account.expiring_next_month} 分　"
+        f"已过期 {account.expired} 分"
+        + (f"　冻结中 {account.frozen} 分" if account.frozen else "")
+    )
+
+    items = list(coupons or [])
+    if items:
+        out.append("")
+        out.append(f"我的券（{len(items)} 张）")
+        for coupon in items:
+            bits = [f"　· {coupon.name}"]
+            if coupon.is_fixed_price:
+                bits.append(f"券面 {coupon.fixed_price_yuan}")
+            if coupon.valid_to:
+                bits.append(f"有效至 {coupon.valid_to}")
+            out.append("　".join(bits))
+            extra = []
+            if not coupon.period.unrestricted:
+                extra.append(f"时段 {coupon.period.describe()}")
+            if coupon.badges:
+                extra.append("、".join(coupon.badges))
+            if coupon.received_text:
+                extra.append(coupon.received_text)
+            if extra:
+                out.append(f"      {'　'.join(extra)}")
+    return "\n".join(out)
+
+
 def render_solution(solution: Solution, store_label: str = "", lines: list[Line] | None = None) -> str:
     """把一次求解渲染成完整报告。"""
     blocks: list[str] = []
@@ -149,6 +204,8 @@ def render_solution(solution: Solution, store_label: str = "", lines: list[Line]
 
 
 __all__ = [
+    "render_account",
+    "render_advice",
     "render_cart",
     "render_plan_detail",
     "render_plan_table",

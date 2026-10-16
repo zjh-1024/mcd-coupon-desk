@@ -43,10 +43,50 @@ needed to reach a threshold, and how much extra a split order saves.
 ```bash
 git clone https://github.com/zjh-1024/mcd-coupon-desk.git
 cd mcd-coupon-desk
-python mcd-coupon-desk.py demo
+python mcd-coupon-desk.py gui      # open the desktop UI
 ```
 
+On Windows you can simply double-click `run-gui.bat` instead.
+
 Python 3.10+ standard library only - **no pip install, no API key**.
+The UI lets you pick menu items, adjust quantities, or just type a line such as
+`巨无霸x2,中薯条` ("Big Mac x2, medium fries"), then shows the four checkout plans,
+the split-order breakdown and a coupon-by-coupon verdict.
+
+### Two windows, one job each
+
+Features are deliberately **not** crammed into a single screen. The main window only
+answers "what is the cheapest way to order"; everything about your account lives in a
+separate "我的账号" window, so both get full height.
+
+| Main window - how to order cheapest | My account - my points and coupons |
+|---|---|
+| Menu + cart (searchable, double-click to add) | Points balance (available / earned / used / expiring) |
+| Four plans: list price / best single coupon / stacked / split order | Deterministic advice computed from your real data |
+| Best-plan breakdown, coupon verdicts, raw text report | My coupons (with usable time windows), points mall |
+
+![Main window](assets/demo-gui.png)
+
+![My account window](assets/demo-account.png)
+
+### Signing in with a real account
+
+Click "我的账号" then "登录 / 刷新" and paste your **MCP token**.
+
+> **Why not username and password?** McDonald's does not expose password login to third
+> parties. The MCP token (<https://open.mcd.cn/mcp>) *is* your account credential and is
+> bound to you. This project never asks for your McDonald's password.
+>
+> The sign-in path is **read-only**: only `query-my-account`, `query-my-coupons` and
+> `mall-points-products` are called. Redeeming or ordering is not on this path.
+
+### Command line
+
+```bash
+python mcd-coupon-desk.py demo     # run the whole pipeline in the terminal
+python mcd-coupon-desk.py me       # sign in; print real points / coupons / advice
+```
+
 `demo` reads the sample store data in `examples/sample_catalog.json` and runs the full pipeline.
 
 ### Real run output

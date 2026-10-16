@@ -17,6 +17,7 @@ from .models import (
     REASON_NOT_BENEFICIAL,
     REASON_NOT_STARTED,
     REASON_OK,
+    REASON_OUT_OF_PERIOD,
     REASON_TEXT,
     REASON_THRESHOLD,
     REASON_WRONG_STORE,
@@ -25,6 +26,7 @@ from .models import (
     Line,
     Verdict,
 )
+from .schedule import describe_moment, parse_datetime
 
 
 def subtotal_cents(lines: list[Line]) -> int:
@@ -32,17 +34,8 @@ def subtotal_cents(lines: list[Line]) -> int:
     return sum(ln.amount_cents for ln in lines)
 
 
-def _parse_time(value: str) -> datetime | None:
-    """宽松解析日期/日期时间字符串；解析不了就返回 None（视为不限）。"""
-    if not value:
-        return None
-    text = value.strip().replace("/", "-")
-    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
-        try:
-            return datetime.strptime(text, fmt)
-        except ValueError:
-            continue
-    return None
+# 保留旧名字，避免外部（含历史测试）因改名而失效
+_parse_time = parse_datetime
 
 
 def _match_items(coupon: Coupon, lines: list[Line]) -> list[Line]:
@@ -87,6 +80,18 @@ def evaluate(
     #    备注里可能装着商品名之类的任意内容。
     if coupon.store_code and store_code and coupon.store_code != store_code:
         return Verdict(coupon, False, REASON_WRONG_STORE, REASON_TEXT[REASON_WRONG_STORE])
+
+    # 2b) 可用时段 —— 有效期内还限「哪几天 + 几点到几点」（如早餐券仅周六 05:00-10:29）。
+    #     放在「适用商品」之前是有意的：时段不通过时，**加购也救不了这张券**，
+    #     直说「什么时候再来」才是有用的信息；先报「无适用商品」会把用户引向白折腾。
+    period = getattr(coupon, "period", None)
+    if period is not None and not period.unrestricted and not period.is_open_at(now):
+        upcoming = period.next_open(now)
+        hint = f"，下次可用：{describe_moment(upcoming, now)}" if upcoming else ""
+        return Verdict(
+            coupon, False, REASON_OUT_OF_PERIOD,
+            f"{REASON_TEXT[REASON_OUT_OF_PERIOD]}（{period.describe()}）{hint}",
+        )
 
     # 3) 适用商品 —— 可以通过加购满足
     hit_lines = _match_items(coupon, lines)

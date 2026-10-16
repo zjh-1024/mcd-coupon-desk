@@ -1,27 +1,38 @@
 """命令行入口。
 
-四种运行模式
-------------
-  demo      用内置样例数据跑通全流程（无需 Token、无需联网）
+运行模式
+--------
+  gui       打开图形界面（可自由输入想吃的餐品，无需 Token）
+  demo      用内置样例数据在终端跑通全流程（无需 Token、无需联网）
+  me        登录麦当劳账号，查看真实积分 / 券 / 推荐（只读，需 Token）
   tools     连接麦当劳 MCP，打印真实工具清单与入参 schema
   diagnose  对当前购物车做券包体检
   plan      求解最省方案
+  menu      查看菜单与券包
 
-设计取向：**默认离线可跑**。任何人 clone 下来执行 `demo` 就能看到完整效果，
-不必先申请 Token —— 这既是评审友好，也是这个项目能被复现的前提。
+设计取向：**默认离线可跑**。任何人 clone 下来执行 `demo` 或 `gui` 就能看到
+完整效果，不必先申请 Token —— 这既是评审友好，也是这个项目能被复现的前提。
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
+from .advisor import advise
 from .catalog import McpSource, OfflineSource
 from .mcp_client import McpAuthError, McpClient, McpError
 from .models import SCOPE_STORE, Catalog, Coupon, Line
-from .report import pad, render_solution, render_verdicts
+from .report import (
+    pad,
+    render_account,
+    render_advice,
+    render_solution,
+    render_verdicts,
+)
 from .solver import solve
 
 DEFAULT_SAMPLE = Path(__file__).resolve().parents[2] / "examples" / "sample_catalog.json"
@@ -140,6 +151,68 @@ def _run_plan(args) -> int:
 
 def cmd_demo(args) -> int:
     return _run_plan(args)
+
+
+def cmd_gui(args) -> int:
+    """打开图形界面。
+
+    图形界面用的是 Python 标准库自带的 tkinter，因此不需要任何额外安装。
+    这里把 tkinter 的导入**放在函数内部**，有两个好处：
+      1. 没装 tkinter 的环境（少数精简版 Linux 发行版）只会在用到 gui 时报错，
+         不会拖累 demo / plan 这些纯命令行路径；
+      2. 报错信息可以翻译成「请改用命令行」的明确指引，而不是一句 ImportError。
+    """
+    try:
+        from .gui import launch
+    except Exception as exc:  # noqa: BLE001 - 包含 ImportError 与显示环境缺失
+        print(f"无法启动图形界面：{exc}", file=sys.stderr)
+        print("请改用命令行：python mcd-coupon-desk.py demo", file=sys.stderr)
+        print("（图形界面依赖 Python 自带的 tkinter，官方安装包默认已包含）", file=sys.stderr)
+        return 5
+
+    sample = Path(args.catalog) if args.catalog else DEFAULT_SAMPLE
+    if not sample.exists():
+        print(f"找不到样例数据：{sample}", file=sys.stderr)
+        return 2
+    token = args.token or os.environ.get("MCD_MCP_TOKEN", "")
+    return launch(sample, token=token, endpoint=args.endpoint)
+
+
+def cmd_me(args) -> int:
+    """登录麦当劳账号，打印真实账号信息与推荐（全程只读）。
+
+    关于「登录」：麦当劳没有向第三方开放账号密码登录，官方唯一凭据是
+    MCP Token（<https://open.mcd.cn/mcp> 申请，天然绑定到你的账号）。
+    因此「登录」= 用 Token 握手成功并能取回本账号数据，**不存在也不需要密码**。
+
+    为什么只读：这里只调用 query-my-account / query-my-coupons /
+    mall-points-products 三个查询类工具。领券、下单等写操作一律不在此路径中，
+    避免用户在看信息的时候被顺手改了账号。
+    """
+    client = McpClient(endpoint=args.endpoint, token=args.token)
+    client.initialize()
+    source = McpSource(client, order_type=args.order_type, be_type=args.be_type)
+
+    store_code = args.store or ""
+    if not store_code and args.city:
+        store_code = source.find_store_code(args.city, args.keyword or args.city)
+    if store_code:
+        source.store_code = store_code
+
+    account = source.my_account()
+    coupons = source.my_coupons()
+
+    products: list = []
+    try:
+        products = source.points_products()
+    except McpError as exc:
+        # 积分商城取不到不该让整条命令失败 —— 账号与券的信息仍然有价值
+        print(f"注：积分商城数据暂时取不到（{exc}），本次不给积分兑换建议。", file=sys.stderr)
+
+    print(render_account(account, coupons))
+    print()
+    print(render_advice(advise(account, coupons, products)))
+    return 0
 
 
 def cmd_tools(args) -> int:
@@ -272,6 +345,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command")
 
+    p_gui = sub.add_parser("gui", parents=[sub_common],
+                           help="打开图形界面（可自由输入餐品，无需 Token）")
+    p_gui.set_defaults(func=cmd_gui, force_offline=True)
+
     p_demo = sub.add_parser("demo", parents=[sub_common], help="用样例数据跑通全流程（无需 Token）")
     p_demo.add_argument("--want", default="巨无霸,麦辣鸡腿堡,中薯条,可口可乐", help="想吃的餐品，逗号分隔")
     # 注意：这里**不能**写 offline=True。
@@ -283,6 +360,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_tools.add_argument("--json", action="store_true", help="以 JSON 输出原始 schema，便于落盘留档")
     p_tools.add_argument("--out", default="", help="把 schema 直接写入指定文件（UTF-8），避免终端编码问题")
     p_tools.set_defaults(func=cmd_tools)
+
+    p_me = sub.add_parser("me", parents=[sub_common],
+                          help="登录麦当劳账号，查看真实积分 / 券 / 推荐（只读，需 Token）")
+    p_me.set_defaults(func=cmd_me)
 
     p_diag = sub.add_parser("diagnose", parents=[sub_common], help="券包体检：哪些能用、哪些为什么不能用")
     p_diag.add_argument("--want", default="巨无霸,麦辣鸡腿堡,中薯条,可口可乐")

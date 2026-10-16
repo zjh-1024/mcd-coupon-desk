@@ -19,7 +19,12 @@ description: 麦当劳点餐优惠计算。当用户问「怎么点最便宜」�
 ## 前置条件
 
 需要麦当劳 MCP Token（<https://open.mcd.cn/mcp>），并已配置 `mcd-mcp` 连接器。
-**没有 Token 时**，仍可用离线样例演示：`python mcd-coupon-desk.py demo`。
+**没有 Token 时**，仍可用离线样例演示：`python mcd-coupon-desk.py demo`（终端报告），
+或 `python mcd-coupon-desk.py gui`（图形界面，Windows 也可直接双击 `run-gui.bat`）。
+
+需要「我有什么券 / 我多少积分 / 给我点建议」时，用 `python mcd-coupon-desk.py me`
+（只读，需 Token）：它会拉取账号积分、我的券与积分商城，并给出确定性建议。
+「登录」= 用 Token 取回账号数据；麦当劳未开放第三方密码登录。
 
 ## 工作流
 

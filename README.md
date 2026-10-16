@@ -4,7 +4,7 @@
 [![MCP](https://img.shields.io/badge/MCP-mcp.mcd.cn-DA291C?style=flat-square)](https://mcp.mcd.cn)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-3FB950?style=flat-square)](#30-秒上手不需要-token)
-[![Tests](https://img.shields.io/badge/tests-53%20passing-3FB950?style=flat-square)](#运行测试)
+[![Tests](https://img.shields.io/badge/tests-92%20passing-3FB950?style=flat-square)](#运行测试)
 [![Token](https://img.shields.io/badge/token-not%20required-blue?style=flat-square)](#30-秒上手不需要-token)
 [![CI](https://github.com/zjh-1024/mcd-coupon-desk/actions/workflows/ci.yml/badge.svg)](https://github.com/zjh-1024/mcd-coupon-desk/actions/workflows/ci.yml)
 
@@ -14,7 +14,7 @@
 
 | 🎟️ 券可用性判定 | 🧮 凑单求解 | 💸 拆单收益 | 🔑 使用门槛 |
 |:---:|:---:|:---:|:---:|
-| 五类不可用原因 + 还差多少钱 | 0/1 背包 DP 精确解 | 样例省 ¥35.00（49.3%） | 无需 Token |
+| 六类不可用原因 + 还差多少钱 + 下次可用时间 | 0/1 背包 DP 精确解 | 样例省 ¥35.00（49.3%） | 无需 Token |
 
 <img src="assets/demo-verdict.svg" alt="同一次点餐的四种下单方案对比：拆单最优到手 ¥36.00，原价 ¥71.00" width="100%">
 
@@ -39,10 +39,64 @@
 ```bash
 git clone https://github.com/zjh-1024/mcd-coupon-desk.git
 cd mcd-coupon-desk
-python mcd-coupon-desk.py demo
+python mcd-coupon-desk.py gui      # 打开图形界面
 ```
 
+Windows 用户也可以**直接双击 `run-gui.bat`**，不用敲任何命令。
+
 只用 Python 3.10+ 标准库，**不需要 pip install，不需要申请任何密钥**。
+界面里的菜单来自门店数据，可以按需勾选、调数量，也可以直接敲一行
+「巨无霸x2,中薯条,可乐」——点「计算最省方案」就能看到四种下单方案的对比、
+拆单明细和券包体检结果。
+
+### 两个窗口，各管一件事
+
+功能刻意**不堆在一个界面里**：主窗口只回答「怎么点最省」，
+账号相关的信息放进独立的「我的账号」窗口，两边都能占满高度。
+
+| 主窗口 —— 怎么点最省 | 我的账号 —— 我的钱和券 |
+|---|---|
+| 菜单 + 购物车（可搜索、双击加购、自由改数量） | 积分账户（可用 / 累计 / 已用 / 将过期） |
+| 方案对比：原价直选 / 单券最优 / 多券叠加 / 拆单最优 | 给我的建议（按真实数据算出，见下） |
+| 最优方案明细、券包体检、完整文本报告 | 我拥有的券（含**可用时段**）、积分商城 |
+
+<img src="assets/demo-gui.png" alt="主窗口：左侧菜单、右侧购物车、下方四种下单方案对比" width="100%">
+
+<img src="assets/demo-account.png" alt="我的账号窗口：账号摘要、建议列表、我的券与积分商城" width="100%">
+
+### 登录真实账号
+
+点主窗口的「我的账号」→「登录 / 刷新」，填入 **MCP Token** 即可。
+
+> **为什么不是账号密码？** 麦当劳没有向第三方开放密码登录。
+> MCP Token（<https://open.mcd.cn/mcp> 申请）就是你账号的凭据，天然绑定到你本人，
+> 能取回账号数据即说明登录有效。本项目**不会也不该**向你索要麦当劳账号密码。
+>
+> 登录路径**全程只读**：只调用 `query-my-account` / `query-my-coupons` /
+> `mall-points-products` 三个查询工具，领券与下单等写操作不在这条路径上。
+
+登录后拿到的建议全部由确定性规则算出，例如（2026-10-16 真实账号数据）：
+
+```
+[优先] 今天有 2 张券到期
+       中薯条买一送一、9.9元中杯冰美式。今天用得上的话就用掉，过期作废。
+[机会] 可用 804 积分兑换「21.9元巨无霸可乐组合」
+       需 800 分，兑换后剩 4 分；当前预算内共 5 件可选。
+[机会] 现在有 1 张券不在可用时段，明天 10:00 起可用
+       人气麦旋风买一送一（10:00-22:00）—— 想吃这些，等到时段内再下单。
+[机会] 5 张券尚未生效，最早 明天 05:00 起可用
+       巧克力味厚松饼猪柳蛋套餐（明天 05:00，周六 05:00-10:29）、…
+```
+
+命令行同样可用：`python mcd-coupon-desk.py me`。
+
+### 命令行
+
+```bash
+python mcd-coupon-desk.py demo     # 在终端里跑一遍完整流程（无需 Token）
+python mcd-coupon-desk.py me       # 登录账号，打印真实积分 / 券 / 建议（需 Token）
+```
+
 `demo` 会读 `examples/sample_catalog.json` 里的样例门店数据，把完整流程跑一遍。
 
 ### 真实运行输出
@@ -125,8 +179,30 @@ $ python mcd-coupon-desk.py demo
 | `WRONG_STORE` | 本店不可用 | 换门店 |
 | `THRESHOLD_NOT_MET` | 未达门槛（**并给出还差多少钱**） | 按差额加购 |
 | `ITEM_MISMATCH` | 无适用商品 | 加对应品类 |
+| `OUT_OF_PERIOD` | 当前不在可用时段（**并给出下次可用时间**） | 等到时段内再下单 |
 
-### 二、凑单是精确解，不是贪心近似
+### 二、券有两层时间约束，只看有效期会算错
+
+`schedule.py`
+
+实测的券不只是「到哪天为止」，还限「**哪几天 + 几点到几点**」：
+
+```
+巧克力味厚松饼猪柳蛋套餐
+- 有效期: 2026-10-17 05:00-2026-10-17 10:29 周六 05:00-10:29
+                                          └── 可用时段 ──┘
+```
+
+只判有效期会得出「这张券现在就能用」的错误结论。本项目把时段结构化
+（星期集合 + 时间窗），既能判断**此刻能不能用**，也能算出**下次什么时候能用** ——
+这正是「现在买还是等」这一问最需要的信息：
+
+```
+[机会] 现在有 1 张券不在可用时段，明天 10:00 起可用
+       人气麦旋风买一送一（10:00-22:00）
+```
+
+### 三、凑单是精确解，不是贪心近似
 
 `solver.minimal_subset_reaching()`
 
@@ -134,7 +210,7 @@ $ python mcd-coupon-desk.py demo
 本项目用一次 0/1 背包 DP 求精确解 —— 差别在于能证明「这就是最省的凑单方式」，
 而不是给一个看起来差不多的凑法。
 
-### 三、拆单：为什么能比合并下单更省
+### 四、拆单：为什么能比合并下单更省
 
 券的门槛是**按单**判定的，同一张券在一笔订单里只能用一次。
 把商品分成两笔，两张「满减券」就都能生效。
@@ -150,12 +226,32 @@ $ python mcd-coupon-desk.py demo
 
 「选哪几件去凑这张券」这一子问题仍由上面的 DP 精确求解。
 
-### 四、叠加：宁可少算，不可虚报
+### 五、叠加：宁可少算，不可虚报
 
 券的 `group` 字段表示互斥组。**未标组的券默认视为互斥**，因为高估节省额比低估更糟 ——
 用户会按错的方案去下单。确实允许叠加时用 `--assume-stackable` 放宽。
 
-### 五、金额全程整数
+### 六、推荐也由确定性规则算出，不交给大模型
+
+`advisor.py`
+
+登录后的「给我的建议」不是模型生成的文案，而是一组可复算的规则：
+
+| 规则 | 输出 |
+|---|---|
+| 积分本月 / 下月将过期 | 先去积分商城兑换（过期不补发） |
+| 有可用积分 | 选**用满余额**的那件商品，并说明兑换后剩多少分 |
+| 积分不够 | 明确算出「再攒 X 分可兑换「…」」 |
+| 券今日到期 / 三天内到期 | 按剩余天数排序提醒 |
+| 券当前不在可用时段 | 直接给出**下次可用时间** |
+| 券尚未生效 | 给出**哪天几点**开始可用 |
+| 券缺「适用商品」信息 | 如实说明它不参与精确算省额（宁可少算，不虚报） |
+
+最后一条尤其重要：麦当劳账号券接口**不返回适用商品**，
+拿券面价硬凑一个节省额就是编数字。本项目选择明说：
+这类券只提示时机，下单前请自行确认适用商品。
+
+### 七、金额全程整数
 
 所有金额以「分」的整数存储与运算。浮点在比价场景会产生 `0.1 + 0.2` 这类误差，
 足以算错最优解。`tests/test_solver.py::TestMoneyUnits` 专门守这条线。
@@ -169,11 +265,26 @@ $ python mcd-coupon-desk.py demo
 ```bash
 export MCD_MCP_TOKEN="你的Token"      # 不要写进任何文件
 
+python mcd-coupon-desk.py me                                 # 登录：真实积分 / 券 / 建议（只读）
 python mcd-coupon-desk.py --store 1410419 menu               # 查看真实菜单与券包
 python mcd-coupon-desk.py --store 1410419 diagnose --want "巨无霸,薯条,可乐"
 python mcd-coupon-desk.py --store 1410419 plan --want "巨无霸,薯条,可乐"
 python mcd-coupon-desk.py tools                              # 打印真实工具清单与入参
 ```
+
+本项目用到的 MCP 工具：
+
+| 工具 | 用途 | 读写 |
+|---|---|---|
+| `now-time-info` | 取当前时间（时段判定要用同一时刻） | 只读 |
+| `query-nearby-stores` | 按城市 + 关键词定位门店 | 只读 |
+| `query-meals` | 门店在售菜单与价格 | 只读 |
+| `query-store-coupons` | **本店当前可用券（唯一带适用商品编码的接口）** | 只读 |
+| `query-my-coupons` | 我拥有的券（无适用商品，仅用于时机建议） | 只读 |
+| `query-my-account` | 麦享会积分账户 | 只读 |
+| `mall-points-products` | 积分商城可兑换商品 | 只读 |
+| `calculate-price` | 官方计价，用于复核本地方案 | 只读 |
+| `auto-bind-coupons` | 一键领券 | **写**（需显式确认，不在自动流程中） |
 
 也可以用城市搜索门店（实测 `city` 与 `keyword` 必须同时提供）：
 
@@ -206,6 +317,7 @@ python mcd-coupon-desk.py --city 南昌 --keyword 南昌 menu
 ```
 mcd-coupon-desk/
 ├── mcd-coupon-desk.py          零安装启动器
+├── run-gui.bat                 Windows 双击即开图形界面（等价于 `... gui`）
 ├── mcp-config.example.json     脱敏的 MCP 配置示例（仅环境变量占位符）
 ├── SKILL.md                    Agent 技能定义
 ├── MCP_INTEGRATION.md          MCP 接入说明：用了哪些 Tool、怎么串、业务价值
@@ -215,21 +327,28 @@ mcd-coupon-desk/
 ├── CHANGELOG.md                变更记录
 ├── .github/workflows/ci.yml    GitHub Actions CI（Python 3.10-3.13 矩阵）
 ├── src/mcd_coupon_desk/
-│   ├── models.py               领域模型（金额 = 整数分）
+│   ├── models.py               领域模型（金额 = 整数分；积分账户 / 积分商品 / 建议）
+│   ├── schedule.py             券的「可用时段」解析（哪几天 + 几点到几点）
 │   ├── coupons.py              券可用性判定
 │   ├── solver.py               四类方案求解（含精确凑单 DP）
+│   ├── advisor.py              基于真实账号数据的推荐（积分 / 到期 / 时机）
 │   ├── catalog.py              数据源适配（离线样例 / 麦当劳 MCP）
 │   ├── textparse.py            解析 MCP 返回的「说明文字 + 内嵌 JSON」
 │   ├── mcp_client.py           零依赖 Streamable HTTP MCP 客户端
 │   ├── report.py               结果渲染
+│   ├── gui.py                  图形界面（tkinter，标准库自带，无需安装）
 │   └── cli.py                  命令行入口
 ├── tests/
 │   ├── test_solver.py           核心算法测试
+│   ├── test_schedule.py         可用时段解析与判定测试
+│   ├── test_advisor.py          推荐规则测试
 │   ├── test_coupon_mapping.py   券名与券面解析测试
 │   └── test_textparse.py        返回文本解析测试
 ├── assets/
 │   ├── demo-verdict.svg         演示结果图（README 首屏）
-│   └── demo-verdict.png         同上，位图版（掘金文章配图）
+│   ├── demo-verdict.png         同上，位图版（掘金文章配图）
+│   ├── demo-gui.png             主窗口截图（README 配图）
+│   └── demo-account.png         我的账号窗口截图（README 配图）
 └── examples/sample_catalog.json 离线样例数据
 ```
 
@@ -241,10 +360,11 @@ mcd-coupon-desk/
 python -m unittest discover -s tests -v
 ```
 
-**53 项测试**，覆盖金额单位无损换算、凑单精确性、五类券不可用原因、四套方案的正确性、
+**92 项测试**，覆盖金额单位无损换算、凑单精确性、五类券不可用原因、四套方案的正确性、
 「未标组默认互斥」的保守假设、MCP 返回文本的解析（含说明文字里的花括号陷阱与空结果识别）、
-以及「固定价券」的省额计算与券名解析，以及拆单可行性（每张券必须落在真正能用它的订单上，
-并由暴力枚举 oracle 对拍兜底）。
+「固定价券」的省额计算与券名解析、拆单可行性（每张券必须落在真正能用它的订单上，
+并由暴力枚举 oracle 对拍兜底）、券的可用时段解析与「下次可用时间」、
+以及推荐规则（积分余额最优兑换、将过期提醒、不虚报缺适用商品的券）。
 
 ---
 
