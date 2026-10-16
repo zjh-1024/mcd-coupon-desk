@@ -40,17 +40,20 @@ needed to reach a threshold, and how much extra a split order saves.
 
 ## Quick start - no token required
 
-### Option 1: download the ZIP (no git needed)
+### Option 1: download (no git, no Python install)
 
 | Download | Link |
 |---|---|
-| **Latest v0.2.0** | <https://github.com/zjh-1024/mcd-coupon-desk/archive/refs/tags/v0.2.0.zip> |
-| Development main | <https://github.com/zjh-1024/mcd-coupon-desk/archive/refs/heads/main.zip> |
+| **Windows single-file exe** (double-click to run) | <https://github.com/zjh-1024/mcd-coupon-desk/releases/latest/download/mcd-coupon-desk.exe> |
+| **Source ZIP - stable v0.2.0** | <https://github.com/zjh-1024/mcd-coupon-desk/archive/refs/tags/v0.2.0.zip> |
+| Source ZIP - development main | <https://github.com/zjh-1024/mcd-coupon-desk/archive/refs/heads/main.zip> |
 
-Unzip and run - **no pip install required**:
-
-- **Windows**: double-click `run-gui.bat` to open the desktop UI directly
-- **macOS / Linux**: `python mcd-coupon-desk.py gui`
+- **Windows exe**: double-click it to open the desktop UI - **Python is not required**.
+  If SmartScreen appears on first run, choose "More info -> Run anyway".
+  It is built and published automatically by
+  [`.github/workflows/release.yml`](.github/workflows/release.yml) on every tag.
+- **Source ZIP**: unzip and run - **no pip install required**.
+  On Windows double-click `run-gui.bat`; on macOS / Linux run `python mcd-coupon-desk.py gui`.
 
 ### Option 2: git clone
 

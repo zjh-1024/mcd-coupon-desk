@@ -36,17 +36,19 @@
 
 ## 30 秒上手（不需要 Token）
 
-### 方式一：直接下载 ZIP（不用 git）
+### 方式一：直接下载（不用 git、不用装 Python）
 
 | 下载 | 链接 |
 |---|---|
-| **最新版 v0.2.0** | <https://github.com/zjh-1024/mcd-coupon-desk/archive/refs/tags/v0.2.0.zip> |
-| 开发版 main | <https://github.com/zjh-1024/mcd-coupon-desk/archive/refs/heads/main.zip> |
+| **Windows 单文件 exe**（双击即用，免安装） | <https://github.com/zjh-1024/mcd-coupon-desk/releases/latest/download/mcd-coupon-desk.exe> |
+| **源码 ZIP · 稳定版 v0.2.0** | <https://github.com/zjh-1024/mcd-coupon-desk/archive/refs/tags/v0.2.0.zip> |
+| 源码 ZIP · 开发版 main | <https://github.com/zjh-1024/mcd-coupon-desk/archive/refs/heads/main.zip> |
 
-解压后即可用，**不需要 pip install**：
-
-- **Windows**：双击 `run-gui.bat` → 直接开图形界面（不弹控制台窗口）
-- **macOS / Linux**：`python mcd-coupon-desk.py gui`
+- **Windows exe**：下载后双击，直接开图形界面，**不需要安装 Python**。
+  首次运行若弹出 SmartScreen 提示，选「更多信息 → 仍要运行」即可。
+  它由 [`.github/workflows/release.yml`](.github/workflows/release.yml) 在打 tag 时自动构建并发布。
+- **源码 ZIP**：解压后用，**不需要 pip install** ——
+  Windows 双击 `run-gui.bat` 开图形界面；macOS / Linux 执行 `python mcd-coupon-desk.py gui`。
 
 ### 方式二：git clone
 
