@@ -20,8 +20,8 @@ from pathlib import Path
 
 from .catalog import McpSource, OfflineSource
 from .mcp_client import McpAuthError, McpClient, McpError
-from .models import Catalog, Coupon, Item, Line
-from .report import pad, render_solution, render_verdicts, yuan
+from .models import SCOPE_STORE, Catalog, Coupon, Line
+from .report import pad, render_solution, render_verdicts
 from .solver import solve
 
 DEFAULT_SAMPLE = Path(__file__).resolve().parents[2] / "examples" / "sample_catalog.json"
@@ -67,7 +67,7 @@ def _print_catalog(catalog: Catalog) -> None:
 def _print_coupons(coupons: list[Coupon]) -> None:
     print(f"券包（{len(coupons)} 张）")
     for c in coupons:
-        scope = "门店券" if c.scope == "store" else "账号券"
+        scope = "门店券" if c.scope == SCOPE_STORE else "账号券"
         print(f"  {pad(c.name, 24)} {pad(c.mode_text, 22)} {pad(scope, 8)} 有效期至 {c.valid_to or '不限'}")
 
 

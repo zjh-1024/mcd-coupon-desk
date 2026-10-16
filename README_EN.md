@@ -4,7 +4,7 @@
 [![MCP](https://img.shields.io/badge/MCP-mcp.mcd.cn-DA291C?style=flat-square)](https://mcp.mcd.cn)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-3FB950?style=flat-square)](#quick-start--no-token-required)
-[![Tests](https://img.shields.io/badge/tests-49%20passing-3FB950?style=flat-square)](#run-the-tests)
+[![Tests](https://img.shields.io/badge/tests-53%20passing-3FB950?style=flat-square)](#run-the-tests)
 [![CI](https://github.com/zjh-1024/mcd-coupon-desk/actions/workflows/ci.yml/badge.svg)](https://github.com/zjh-1024/mcd-coupon-desk/actions/workflows/ci.yml)
 
 **Turn the money side of ordering at McDonald's into a deterministic calculation.**
@@ -65,10 +65,22 @@ Split-best         2        CNY 71.00   CNY 35.00    CNY 36.00   <- best
 Stacked            1        CNY 71.00   CNY 30.00    CNY 41.00
 Single-best        1        CNY 71.00   CNY 25.00    CNY 46.00
 List price         1        CNY 71.00    CNY 0.00    CNY 71.00
+
+Best plan detail - Split-order best
+----------------------------------------------------------
+Order 1  中薯条 x1 + 麦辣鸡腿堡 x1
+    Coupon  门店专享 满35减18 (-CNY 18.00)
+    Subtotal CNY 36.50   Save CNY 18.00   Pay CNY 18.50
+
+Order 2  可口可乐中杯 x1 + 巨无霸 x1
+    Coupon  满30减12 (-CNY 12.00)
+    Coupon  饮品立减5元 (-CNY 5.00)
+    Subtotal CNY 34.50   Save CNY 17.00   Pay CNY 17.50
+* Split into 2 orders, each using: 门店专享 满35减18 / 满30减12 / 饮品立减5元
 ```
 
-(The demo prints in Chinese; the numbers above are the actual sample-data output and do not
-represent any real price.)
+(The demo prints in Chinese; item and coupon names above are kept as printed. The numbers are the
+actual sample-data output and do not represent any real price.)
 
 ---
 
@@ -166,7 +178,7 @@ mcd-coupon-desk/
 |   |-- mcp_client.py           zero-dependency Streamable HTTP MCP client
 |   |-- report.py               output rendering
 |   |-- cli.py                  command-line entry point
-|-- tests/                      49 unit tests
+|-- tests/                      53 unit tests
 |-- assets/                     demo result image
 |-- examples/sample_catalog.json
 ```
@@ -179,9 +191,11 @@ mcd-coupon-desk/
 python -m unittest discover -s tests -v
 ```
 
-**49 tests**, covering lossless cent conversion, exactness of top-up, the five block reasons,
+**53 tests**, covering lossless cent conversion, exactness of top-up, the five block reasons,
 correctness of the four plans, the 'ungrouped = exclusive' conservative assumption, parsing of
-MCP response text, and fixed-price coupon savings. CI runs them on Python 3.10-3.13.
+MCP response text, fixed-price coupon savings, and split-order feasibility (each applied coupon
+must be re-validated on its own order, cross-checked by an exhaustive-enumeration oracle).
+CI runs them on Python 3.10-3.13.
 
 ---
 

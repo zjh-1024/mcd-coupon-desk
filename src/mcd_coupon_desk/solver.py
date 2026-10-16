@@ -29,7 +29,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from .coupons import diagnose, subtotal_cents
+from .coupons import _match_items, diagnose, evaluate, subtotal_cents
 from .models import Coupon, Item, Line, Verdict
 
 # 空 group 的券归入这个默认互斥组
@@ -253,8 +253,16 @@ def _split_with_ordering(
     usable: list[Verdict],
     assume_stackable: bool,
     priority,
+    store_code: str = "",
+    now: datetime | None = None,
 ) -> Plan | None:
-    """按给定优先级做一次拆单，返回方案或 None。"""
+    """按给定优先级做一次拆单，返回方案或 None。
+
+    关键点：每张券最终落在哪笔订单上，都由 `coupons.evaluate` 在**那笔订单**的
+    商品组合上重新判定（门槛 / 适用商品 / 门店 / 时效），不复用「全车工况」下的
+    旧结论 —— 否则会把「限饮品」的券挂到没有饮品的订单上，算出虚假节省额。
+    重新判定的省额也必须用该订单现算（固定价券的省额取决于该单里的商品原价）。
+    """
     remaining = _expand(lines)
     orders: list[OrderPlan] = []
     used_names: list[str] = []
@@ -265,29 +273,53 @@ def _split_with_ordering(
         if not remaining:
             floating.append(verdict)
             continue
-        subset = minimal_subset_reaching(remaining, coupon.threshold_cents)
+
+        # 受限券（限商品编码 / 限品类）只能在**适用商品**里凑单，
+        # 否则会生成一笔根本不满足该券商品约束的订单。
+        pool = remaining
+        if coupon.item_codes or coupon.item_tags:
+            pool = [unit for unit in remaining if _match_items(coupon, [Line(unit, 1)])]
+            if not pool:
+                continue          # 剩余商品里没有适用商品，这张券本轮放弃
+
+        subset = minimal_subset_reaching(pool, coupon.threshold_cents)
         if subset is None:
             continue          # 余量不够凑门槛，这张券在本轮放弃
         if not subset:
             floating.append(verdict)   # 无门槛券，不必独占一笔订单
             continue
+
+        order_lines = _collapse(subset)
+        fresh = evaluate(coupon, order_lines, store_code, now)
+        if not fresh.usable:
+            # 理论上不会走到（池子已按约束过滤）；保守起见放弃，不虚报。
+            continue
         for unit in subset:
             remaining.remove(unit)
-        orders.append(OrderPlan(lines=_collapse(subset), applied=[Applied(coupon, verdict.saving_cents)]))
+        orders.append(OrderPlan(lines=order_lines, applied=[Applied(coupon, fresh.saving_cents)]))
         used_names.append(coupon.name)
 
     if not orders:
         return None
 
-    # 无门槛券挂到当前金额最大的那笔订单上（不改变减免总额，但少开一笔单）
-    for verdict in floating:
-        host = max(orders, key=lambda o: o.subtotal_cents)
-        if _can_attach(host, verdict.coupon, assume_stackable):
-            host.applied.append(Applied(verdict.coupon, verdict.saving_cents))
-            used_names.append(verdict.coupon.name)
-
+    # 剩余商品的订单必须**先**纳入候选，floating 券才能看到
+    # 「唯一含适用商品」的那笔订单，否则只能挂到错误的订单上。
     if remaining:
         orders.append(OrderPlan(lines=_collapse(remaining)))
+
+    # 无门槛券（含「受限但无门槛」型）挂到**第一笔能真正使用它**的订单上：
+    # 候选订单按小计降序逐个尝试，同时满足「互斥组允许」与「按该单重新判定可用」
+    # 才落点；省额用该订单现算。全都通不过就本轮放弃（宁可少算，不虚报节省额）。
+    for verdict in floating:
+        for host in sorted(orders, key=lambda o: o.subtotal_cents, reverse=True):
+            if not _can_attach(host, verdict.coupon, assume_stackable):
+                continue
+            fresh = evaluate(verdict.coupon, host.lines, store_code, now)
+            if not fresh.usable:
+                continue
+            host.applied.append(Applied(verdict.coupon, fresh.saving_cents))
+            used_names.append(verdict.coupon.name)
+            break
 
     if sum(1 for o in orders if o.coupons) < 2:
         return None           # 只落到一笔订单上，谈不上拆单
@@ -303,6 +335,8 @@ def plan_split(
     lines: list[Line],
     verdicts: list[Verdict],
     assume_stackable: bool = False,
+    store_code: str = "",
+    now: datetime | None = None,
 ) -> Plan | None:
     """方案 D：拆单。把购物车拆成多笔订单，各自核销一张券。
 
@@ -318,6 +352,9 @@ def plan_split(
       · 按减免率降序（减免 ÷ 门槛）—— 优先留出余量给后续小券
       · 按门槛升序 —— 优先满足容易达成的券
     实测中「减免率」在多数场景最优，多跑两种只是兜底，代价可忽略。
+
+    每条券的落点都会用 `coupons.evaluate` 在**目标订单**上重新判定，
+    因此 `store_code` 与 `now` 必须一路传下来。
     """
     usable = [v for v in verdicts if v.usable]
     if len(usable) < 2:
@@ -331,7 +368,7 @@ def plan_split(
 
     candidates: list[Plan] = []
     for priority in orderings:
-        plan = _split_with_ordering(lines, usable, assume_stackable, priority)
+        plan = _split_with_ordering(lines, usable, assume_stackable, priority, store_code, now)
         if plan is not None:
             candidates.append(plan)
 
@@ -379,7 +416,7 @@ def solve(
     makers = (
         lambda: plan_single_best(lines, verdicts),
         lambda: plan_stacked(lines, verdicts, assume_stackable),
-        lambda: plan_split(lines, verdicts, assume_stackable),
+        lambda: plan_split(lines, verdicts, assume_stackable, store_code, now),
     )
     for maker in makers:
         plan = maker()

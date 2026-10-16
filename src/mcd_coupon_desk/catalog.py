@@ -301,7 +301,10 @@ class OfflineSource:
             store_name=str(store.get("name", "")),
             items=[item_from_raw(x, code=str(x.get("code", ""))) for x in payload.get("items", [])],
         )
-        self._coupons = [coupon_from_raw(x) for x in payload.get("coupons", [])]
+        self._coupons = [
+            coupon_from_raw(x, scope=str(x.get("scope") or SCOPE_ACCOUNT))
+            for x in payload.get("coupons", [])
+        ]
 
     @property
     def store_code(self) -> str:
