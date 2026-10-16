@@ -396,7 +396,12 @@ class McpSource:
             if is_empty_result(text):
                 return []
             raise McpError(f"{tool} 返回无法解析：{str(text)[:200]}") from None
-        return data if isinstance(data, list) else data
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            # 少数列表型工具会把记录包在对象里，统一归一成「记录列表」
+            return _iter_rows(data)
+        return []
 
     # -------------------------------------------------- 门店
 

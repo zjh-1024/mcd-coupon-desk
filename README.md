@@ -6,6 +6,7 @@
 [![Dependencies](https://img.shields.io/badge/dependencies-none-3FB950?style=flat-square)](#30-秒上手不需要-token)
 [![Tests](https://img.shields.io/badge/tests-49%20passing-3FB950?style=flat-square)](#运行测试)
 [![Token](https://img.shields.io/badge/token-not%20required-blue?style=flat-square)](#30-秒上手不需要-token)
+[![CI](https://github.com/zjh-1024/mcd-coupon-desk/actions/workflows/ci.yml/badge.svg)](https://github.com/zjh-1024/mcd-coupon-desk/actions/workflows/ci.yml)
 
 **把麦当劳点餐里「钱」这件事，做成一道确定性计算题。**
 
@@ -183,6 +184,9 @@ mcd-coupon-desk/
 ├── MCP_INTEGRATION.md          MCP 接入说明：用了哪些 Tool、怎么串、业务价值
 ├── CONTEST_DECLARATION.md      参赛声明（官方原文，未作任何修改）
 ├── workbuddy.md                开发过程记录
+├── README_EN.md                英文版说明
+├── CHANGELOG.md                变更记录
+├── .github/workflows/ci.yml    GitHub Actions CI（Python 3.10-3.13 矩阵）
 ├── src/mcd_coupon_desk/
 │   ├── models.py               领域模型（金额 = 整数分）
 │   ├── coupons.py              券可用性判定

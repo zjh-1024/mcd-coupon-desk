@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
 
 from .models import (
     REASON_EXPIRED,
@@ -23,7 +23,6 @@ from .models import (
     Catalog,
     Coupon,
     Line,
-    SCOPE_STORE,
     Verdict,
 )
 
@@ -151,7 +150,6 @@ def applicable_for_catalog(coupons: list[Coupon], catalog: Catalog, store_code: 
 
 
 __all__ = [
-    "date",
     "applicable_for_catalog",
     "diagnose",
     "evaluate",

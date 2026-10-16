@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import unicodedata
 
-from .models import Line, Verdict
+from .models import SCOPE_STORE, Line, Verdict
 from .solver import Plan, Solution
 
 
@@ -55,7 +55,8 @@ def render_verdicts(verdicts: list[Verdict]) -> str:
         for v in usable:
             out.append(f"  · {v.coupon.name}　省 {yuan(v.saving_cents)}")
             if v.coupon.threshold_cents:
-                out.append(f"      门槛 {yuan(v.coupon.threshold_cents)}　渠道 {'门店券' if v.coupon.scope == 'store' else '账号券'}")
+                scope_label = "门店券" if v.coupon.scope == SCOPE_STORE else "账号券"
+                out.append(f"      门槛 {yuan(v.coupon.threshold_cents)}　渠道 {scope_label}")
 
     if blocked:
         out.append("")
