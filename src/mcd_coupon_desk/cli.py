@@ -379,7 +379,31 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _make_stdout_tolerant() -> None:
+    """让输出在「非 UTF-8 编码的管道 / 重定向」下不再直接崩溃。
+
+    复现场景：中文 Windows 上执行 `python mcd-coupon-desk.py demo > out.txt`，
+    或从 CI / 其它非 UTF-8 环境里跑 —— 此时 stdout 不是控制台而是管道，
+    Python 会退回系统 locale 编码（GBK / cp1252），而报告里的
+    `¥`（U+00A5）在 GBK 里不存在，于是抛 UnicodeEncodeError 把整个命令打断。
+
+    这里只把 errors 改成 replace：能编码的字符照旧输出，编不出来的降级为 `?`。
+    宁可少一个装饰性符号，也不要让用户什么结果都拿不到。
+    （真实控制台走 PEP 528 的 UTF-8，不受影响；需要强制 UTF-8 可设 PYTHONUTF8=1。）
+    """
+    for name in ("stdout", "stderr"):
+        stream = getattr(sys, name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(errors="replace")
+        except Exception:  # noqa: BLE001 - 编码兜底失败也不能影响主流程
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _make_stdout_tolerant()
     parser = build_parser()
     args = parser.parse_args(argv)
     if not getattr(args, "func", None):

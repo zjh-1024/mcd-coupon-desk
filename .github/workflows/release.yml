@@ -18,6 +18,14 @@ jobs:
     name: 构建 Windows exe 并发布
     runs-on: windows-latest
 
+    # 强制 Python 以 UTF-8 输出。
+    # 原因：runner 上 stdout 是管道而非控制台，Python 会退回系统 locale 编码
+    # （cp1252 / GBK），而报告里的「结论」「─」「¥」等字符编不出来，
+    # 会让 demo 以 UnicodeEncodeError 退出 1 —— 第一次跑就是这么失败的。
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
+
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
