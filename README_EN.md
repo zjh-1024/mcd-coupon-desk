@@ -40,6 +40,20 @@ needed to reach a threshold, and how much extra a split order saves.
 
 ## Quick start - no token required
 
+### Option 1: download the ZIP (no git needed)
+
+| Download | Link |
+|---|---|
+| **Latest v0.2.0** | <https://github.com/zjh-1024/mcd-coupon-desk/archive/refs/tags/v0.2.0.zip> |
+| Development main | <https://github.com/zjh-1024/mcd-coupon-desk/archive/refs/heads/main.zip> |
+
+Unzip and run - **no pip install required**:
+
+- **Windows**: double-click `run-gui.bat` to open the desktop UI directly
+- **macOS / Linux**: `python mcd-coupon-desk.py gui`
+
+### Option 2: git clone
+
 ```bash
 git clone https://github.com/zjh-1024/mcd-coupon-desk.git
 cd mcd-coupon-desk

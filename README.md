@@ -36,6 +36,20 @@
 
 ## 30 秒上手（不需要 Token）
 
+### 方式一：直接下载 ZIP（不用 git）
+
+| 下载 | 链接 |
+|---|---|
+| **最新版 v0.2.0** | <https://github.com/zjh-1024/mcd-coupon-desk/archive/refs/tags/v0.2.0.zip> |
+| 开发版 main | <https://github.com/zjh-1024/mcd-coupon-desk/archive/refs/heads/main.zip> |
+
+解压后即可用，**不需要 pip install**：
+
+- **Windows**：双击 `run-gui.bat` → 直接开图形界面（不弹控制台窗口）
+- **macOS / Linux**：`python mcd-coupon-desk.py gui`
+
+### 方式二：git clone
+
 ```bash
 git clone https://github.com/zjh-1024/mcd-coupon-desk.git
 cd mcd-coupon-desk
